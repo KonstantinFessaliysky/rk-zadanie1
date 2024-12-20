@@ -1,0 +1,47 @@
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE operations_log (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id),
+    operation VARCHAR(16) CHECK (operation IN ('ADD', 'REMOVE')),
+    quantity INTEGER NOT NULL
+);
+
+INSERT INTO products(id, name, quantity)
+VALUES(1, 'яблоки', 100);
+SELECT * FROM products;
+
+CREATE PROCEDURE update_stock(product_id INT, operation VARCHAR, quantity INT)
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF operation = 'ADD' THEN
+        UPDATE products
+        SET quantity = products.quantity + quantity
+        WHERE id = product_id;
+
+        INSERT INTO operations_log (product_id, operation, quantity)
+        VALUES (product_id, operation, quantity);
+
+    ELSE
+        IF (SELECT products.quantity FROM products WHERE id = product_id) >= quantity THEN
+
+            UPDATE products
+            SET quantity = products.quantity - quantity
+            WHERE id = product_id;
+            INSERT INTO operations_log (product_id, operation, quantity)
+            VALUES (product_id, operation, quantity);
+        ELSE
+            RAISE EXCEPTION 'Количество товара не может быть отрицательным';
+        END IF;
+
+    END IF;
+END;
+$$;
+CALL update_stock(1, 'REMOVE', 20);
+CALL update_stock(1, 'ADD', 10);
+SELECT * FROM products
+CALL update_stock(1, 'REMOVE', 150);
